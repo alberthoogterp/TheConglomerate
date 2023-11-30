@@ -24,3 +24,4 @@ Route::get("/home", function(){
 Route::get("/jsonBuilder", [JsonbuilderController::class, "pageload"])->name("jsonbuilder");
 Route::post("/jsonBuilder/load", [JsonbuilderController::class, "loadJson"])->name("loadjson");
 Route::post("/jsonBuilder/save", [JsonbuilderController::class, "saveJson"])->name("savejson");
+Route::post("/jsonBuilder/update", [JsonbuilderController::class, "updateJson"])->name("updatejson");

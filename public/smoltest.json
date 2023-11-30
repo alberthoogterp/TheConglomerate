@@ -1,5 +1,9 @@
-{
-    "test":{
-        "ding":"value"
+[
+    "albert",
+    "john",
+    "peta",
+    "lois",
+    {
+        "naam":"kees"
     }
-}
+]
