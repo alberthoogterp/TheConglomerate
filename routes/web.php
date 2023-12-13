@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\JsonbuilderController;
+use App\Http\Controllers\sudolverController;
+use App\Http\Controllers\visualizerController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -25,3 +27,9 @@ Route::get("/jsonBuilder", [JsonbuilderController::class, "pageload"])->name("js
 Route::post("/jsonBuilder/load", [JsonbuilderController::class, "loadJson"])->name("loadjson");
 Route::post("/jsonBuilder/save", [JsonbuilderController::class, "saveJson"])->name("savejson");
 Route::post("/jsonBuilder/update", [JsonbuilderController::class, "updateJson"])->name("updatejson");
+
+Route::get("/visualizer", [visualizerController::class, "pageload"])->name("visualizer");
+Route::post("/visualizer/upload", [visualizerController::class, "loadAudio"])->name("loadaudio");
+
+Route::get("/sudolver", [sudolverController::class, "pageload"])->name("sudolver");
+Route::post("/sudolver/solve", [sudolverController::class, "solve"])->name("solve");

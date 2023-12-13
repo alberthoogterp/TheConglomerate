@@ -10,9 +10,9 @@
     <div style="display:flex; justify-content: center; align-items:center; text-align:center; height:100vh; width:100vw">
         <div style="height:50%; width:90%">
             <ul id="gallery" class="gallery">
-                <li><a href="{{route('jsonbuilder')}}">jsonbuilder</a></li>
-                <li></li>
-                <li></li>
+                <li><a href="{{route('jsonbuilder')}}">Jsonbuilder</a></li>
+                <li><a href="{{route('visualizer')}}">Visualizer</a></li>
+                <li><a href="{{route('sudolver')}}">Sudolver</a></li>
                 <li></li>
                 <li></li>
             </ul>
