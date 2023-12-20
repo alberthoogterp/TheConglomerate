@@ -17,6 +17,9 @@ body
     flex-direction: column;
     border: 1px solid black;
 }
+#canvasButtons{
+    justify-content: left;
+}
 .sudokuCanvas{
     margin-top: 10px;
     margin-bottom: 10px;
@@ -38,9 +41,11 @@ body
     }
 }
 #errors{
+    width: 15em;
     margin-top: 10px;
     font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
     font-style: italic;
     font-size: large;
     color: red;
+    overflow-wrap: break-word;
 }

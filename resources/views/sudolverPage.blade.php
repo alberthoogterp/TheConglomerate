@@ -28,8 +28,11 @@
                 @csrf
                 <div id="sudokuCanvas" class="sudokuCanvas">
                 </div>
-                <input type="submit">
             </form>
+            <div id="canvasButtons">
+                <input id="canvasSubmit" type="submit" form="canvasForm">
+                <button onclick="reset()">Reset</button>
+            </div>
             
             <div id="errors">{{$errors->first() ?? ""}}</div>
 
@@ -54,7 +57,8 @@
                 function initPage(){
                     let modus = getSudokuModus();
                     let type = getSudokuType();
-                    createCanvas(type, modus);
+                    let sudokuArray = {!! json_encode($sudokuArray) !!};
+                    createCanvas(type, modus, sudokuArray);
                 }
 
                 function getSudokuModus(){
@@ -67,11 +71,11 @@
                     return elem.value;
                 }
 
-                function createCanvas(type, modus){
+                function createCanvas(type, modus, sudokuArray){
                     const canvas = document.getElementById("sudokuCanvas"); 
                     const sectorTemplate = document.getElementById("sudokuSector");
                     if(modus == "Solver"){
-                        const submitButton = document.querySelector("#canvasForm input[type=submit]");
+                        const submitButton = document.getElementById("canvasSubmit");
                         submitButton.setAttribute("value", "Solve");
                         if(type == "Standard"){
                             var sudokuSectorAmmount = 9
@@ -81,7 +85,13 @@
                             const inputArray = sectorTemplateClone.querySelector(".sudokuSector").children;
                             for(j = 0; j < inputArray.length; j++){
                                 inputArray[j].setAttribute("name", "input["+i+"]["+j+"]");
-                                inputArray[j].setAttribute("value", "-");
+                                if(sudokuArray.length === 0){
+                                    value = "-";
+                                }
+                                else{
+                                    value = sudokuArray[i][j];
+                                }
+                                inputArray[j].setAttribute("value", value);
                                 canvas.appendChild(sectorTemplateClone);
                             }
                         }
@@ -101,6 +111,17 @@
                 function emptyValue(input){
                     if(input.value === "-"){
                         input.value = "";
+                    }
+                }
+
+                function reset(){
+                    const canvas = document.getElementById("sudokuCanvas"); 
+                    const errorDiv = document.getElementById("errors");
+                    errorDiv.textContent = "";
+                    for(const input of canvas.children){
+                        for(let value of input.children){
+                            value.value = "-";
+                        }
                     }
                 }
                 
