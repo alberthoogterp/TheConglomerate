@@ -38,15 +38,21 @@
 
             <template id="sudokuSector">
                 <div class="sudokuSector">
-                    <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
-                    <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
-                    <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
-                    <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
-                    <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
-                    <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
-                    <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
-                    <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
-                    <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
+                    <div class=sectorRow id="sectorRow1">
+                        <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
+                        <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
+                        <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
+                    </div>
+                    <div class=sectorRow id="sectorRow2">
+                        <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
+                        <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
+                        <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
+                    </div>
+                    <div class=sectorRow id="sectorRow3">
+                        <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
+                        <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
+                        <input type="text" maxlength="1" onclick="emptyValue(this)" onblur="validateInput(this)">
+                    </div>
                 </div>
             </template>
 
@@ -79,20 +85,33 @@
                         submitButton.setAttribute("value", "Solve");
                         if(type == "Standard"){
                             var sudokuSectorAmmount = 9
+                            var colSize = 3;
+                            var rowSize = 3;
                         }
-                        for(i = 0; i < sudokuSectorAmmount; i++){
-                            const sectorTemplateClone = document.importNode(sectorTemplate.content, true);
-                            const inputArray = sectorTemplateClone.querySelector(".sudokuSector").children;
-                            for(j = 0; j < inputArray.length; j++){
-                                inputArray[j].setAttribute("name", "input["+i+"]["+j+"]");
-                                if(sudokuArray.length === 0){
-                                    value = "-";
+                        for(col = 0; col < colSize; col++){
+                            for(row = 0; row < rowSize; row++){
+                                const sectorTemplateClone = document.importNode(sectorTemplate.content, true);
+                                const sectorColumns = sectorTemplateClone.querySelector(".sudokuSector").children;
+                                for(sectorCol = 0; sectorCol < sectorColumns.length; sectorCol++){
+                                    const sectorRows = sectorColumns[sectorCol].children;
+                                    for(sectorRow = 0; sectorRow < sectorRows.length; sectorRow++){
+                                        sectorRows[sectorRow].setAttribute("name", "input["+col+"]["+row+"]["+sectorCol+"]["+sectorRow+"]");
+                                        if(sudokuArray.length === 0){
+                                            value = "-";
+                                        }
+                                        else{
+                                            if(!Array.isArray(sudokuArray[col][row][sectorCol][sectorRow])){
+                                                value = sudokuArray[col][row][sectorCol][sectorRow];
+                                            } 
+                                            else{
+                                                value = "-";
+                                            }
+                                            
+                                        }
+                                        sectorRows[sectorRow].setAttribute("value", value);
+                                        canvas.appendChild(sectorTemplateClone);
+                                    }
                                 }
-                                else{
-                                    value = sudokuArray[i][j];
-                                }
-                                inputArray[j].setAttribute("value", value);
-                                canvas.appendChild(sectorTemplateClone);
                             }
                         }
                     } 
@@ -118,9 +137,11 @@
                     const canvas = document.getElementById("sudokuCanvas"); 
                     const errorDiv = document.getElementById("errors");
                     errorDiv.textContent = "";
-                    for(const input of canvas.children){
-                        for(let value of input.children){
-                            value.value = "-";
+                    for(const sector of canvas.children){
+                        for(const row of sector.children){
+                            for(const col of row.children){
+                                col.value = "-";
+                            }
                         }
                     }
                 }

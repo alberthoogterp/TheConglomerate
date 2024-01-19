@@ -25,16 +25,18 @@ body
     margin-bottom: 10px;
     width: fit-content;
     height: fit-content;
-}
-.sudokuCanvas, .sudokuSector{
-    padding: 5px;
-    border-style: solid;
-    border-width: 1px;
-    display: grid;
     grid-template-columns: auto auto auto;
     gap: 10px;
 }
+.sudokuCanvas, .sudokuSector{
+    padding: 6px;
+    border-style: solid;
+    border-width: 1px;
+    display: grid;
+}
 .sudokuSector{ 
+    gap: 5px;
+    grid-template-columns: auto;
     input{
         text-align: center;
         width: 1em;

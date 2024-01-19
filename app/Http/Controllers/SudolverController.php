@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\CustomClasses\SudokuModus;
 use App\CustomClasses\SudokuType;
+use Exception;
+use Symfony\Component\VarDumper\VarDumper;
 
 class SudolverController extends Controller
 {
@@ -17,7 +19,6 @@ class SudolverController extends Controller
     public function solve(Request $request){
         $sudokuArray = $request->get("input");
         $error = "";
-        
         if($sudokuArray){
             $filledInputsAmmount = $this->validSudokuInput($sudokuArray);
             if(!$filledInputsAmmount){
@@ -25,13 +26,13 @@ class SudolverController extends Controller
             }
             else{
                 $solution = $this->sudokuSolver($sudokuArray, $filledInputsAmmount[0], $filledInputsAmmount[1]);
-                if(!$solution){
+                if(!$solution[0]){
                     $error = "This sudoku is unsolvable.";
                 }
                 else{
-                    $sudokuArray = $solution;
                     $error = "Succes! :)";
                 }
+                $sudokuArray = $solution[1];
             }
         }
         else{
@@ -51,147 +52,352 @@ class SudolverController extends Controller
     private function validSudokuInput(array $sudArray) : array | false{
         $preFilledAmmount = 0;
         $total = 0;
-        for($i = 0; $i < count($sudArray); $i++){
-            for($j = 0; $j < count($sudArray[$i]); $j++){
-                $total++;
-                if ($sudArray[$i][$j] != "-"){
-                    $preFilledAmmount++;
-                    if($this->sectorHasDuplicate($sudArray[$i], $j, $sudArray[$i][$j]) || $this->RowHasDuplicate($sudArray, $i, $j, $sudArray[$i][$j]) || $this->colHasDuplicate($sudArray, $i, $j, $sudArray[$i][$j])){
-                        return false;
+        for($sudokuRow = 0; $sudokuRow < count($sudArray); $sudokuRow++){
+            for($sudokuCol = 0; $sudokuCol < count($sudArray[$sudokuRow]); $sudokuCol++){
+                for($sectorRow = 0; $sectorRow < count($sudArray[$sudokuRow][$sudokuCol]); $sectorRow++){
+                    for($sectorCol = 0; $sectorCol < count($sudArray[$sudokuRow][$sudokuCol][$sectorRow]); $sectorCol++){
+                        $total++;
+                        $num = $sudArray[$sudokuRow][$sudokuCol][$sectorRow][$sectorCol];
+                        if ($num !== "-"){
+                            $preFilledAmmount++;
+                            if(count($this->sectorHasDuplicate($sudArray[$sudokuRow][$sudokuCol], $sectorRow, $sectorCol, [$num])) === 0 || count($this->RowHasDuplicate($sudArray, $sudokuRow, $sectorRow, $sudokuCol, $sectorCol, [$num])) === 0 || count($this->colHasDuplicate($sudArray, $sudokuCol, $sectorCol, $sudokuRow, $sectorRow, [$num])) === 0){
+                                return false;
+                            }
+                        }
                     }
                 }
             }
         }
-        if($preFilledAmmount < 17){//any sudoku with less than 17 characters is unsolvable
+        if($preFilledAmmount < 17){//any sudoku with less than 17 characters is always unsolvable
             return false;
         }
         return [$preFilledAmmount, $total];
     }
 
-    private function sectorHasDuplicate(array $sector, $numPos, int $num): bool{
-        for($i = 0; $i < count($sector); $i++){//check if a number appears multiple times in the same sector
-            if($i != $numPos){
-                if($num == $sector[$i]){
-                    return true;
+    private function sectorHasDuplicate(array $sector, int $numRow, int $numCol, array $numOptions): array{
+        $newOptions = [];
+        foreach($numOptions as $num){//check which numbers already are in the sector
+            $duplicate = false;
+            for($row = 0; $row < count($sector); $row++){
+                for($col = 0; $col < count($sector[$row]); $col++){
+                    if($row !== $numRow || $col !== $numCol){
+                        if($sector[$row][$col] == $num){
+                            $duplicate = true;
+                            break 2;
+                        }
+                    }
+                }
+            }
+            if(!$duplicate){
+                array_push($newOptions, $num);
+            }
+        }
+        return $newOptions;
+    }
+
+    private function RowHasDuplicate(array $sudArray, int $sudokuRow, int $sectorRow, int $numSudokuCol, int $numSectorCol, array $numOptions){
+        $newOptions = [];
+        foreach($numOptions as $num){//check which numbers already are in the row
+            $duplicate = false;
+            for($sudokuCol = 0; $sudokuCol < count($sudArray[$sudokuRow]); $sudokuCol++){
+                for($sectorCol = 0; $sectorCol < count($sudArray[$sudokuRow][$sudokuCol][$sectorRow]); $sectorCol++){
+                    $comparedNum = $sudArray[$sudokuRow][$sudokuCol][$sectorRow][$sectorCol];
+                    if($sudokuCol !== $numSudokuCol || $sectorCol !== $numSectorCol){
+                        if($comparedNum == $num){
+                            $duplicate = true;
+                            break 2;
+                        }
+                    }
+                }
+            }
+            if(!$duplicate){
+                array_push($newOptions, $num);
+            }
+        }
+        return $newOptions;
+    }
+
+    private function ColHasDuplicate(array $sudArray, int $sudokuCol, int $sectorCol, int $numSudokuRow, int $numSectorRow, array $numOptions){
+        $newOptions = [];
+        foreach($numOptions as $num){//check check which numbers already are in the collumn
+            $duplicate = false;
+            for($sudokuRow = 0; $sudokuRow < count($sudArray); $sudokuRow++){
+                for($sectorRow = 0; $sectorRow < count($sudArray[$sudokuRow][$sudokuCol]); $sectorRow++){
+                    $comparedNum = $sudArray[$sudokuRow][$sudokuCol][$sectorRow][$sectorCol];
+                    if($sudokuRow !== $numSudokuRow || $sectorRow !== $numSectorRow){
+                        if($comparedNum == $num){
+                            $duplicate = true;
+                            break 2;
+                        }
+                    }
+                }
+            }
+            if(!$duplicate){
+                array_push($newOptions, $num);
+            }
+        }
+        return $newOptions;
+    }
+
+    private function movePrediction(array &$sudArray, int $sudokuRow, int $sudokuCol){//checks if there are options within a sector that all allign on the same axis so we can remove those options from other sectors on that axis
+        for($num = 1; $num < 10; $num++){
+            $lastRow = null;
+            $lastCol = null;
+            $sameRow = true;
+            $sameCol = true;
+            for($sectorRow = 0; $sectorRow < count($sudArray[$sudokuRow][$sudokuCol]); $sectorRow++){
+                for($sectorCol = 0; $sectorCol < count($sudArray[$sudokuRow][$sudokuCol][$sectorRow]); $sectorCol++){
+                    $options = $sudArray[$sudokuRow][$sudokuCol][$sectorRow][$sectorCol];
+                    if(is_array($options) && in_array($num, $options)){
+                        if($lastRow !== null){
+                            if($sectorRow !== $lastRow){
+                                $sameRow = false;
+                            }
+                            if($sectorCol !== $lastCol){
+                                $sameCol = false;
+                            }
+                            if(!$sameRow && !$sameCol){
+                                break 2;
+                            }
+                        }
+                        $lastRow = $sectorRow;
+                        $lastCol = $sectorCol;
+                    }
+                }
+            }
+            if($lastRow !== null){
+                if($sameRow){
+                    for($i = 0; $i < count($sudArray[$sudokuRow]); $i++){
+                        for($j = 0; $j < count($sudArray[$sudokuRow][$i][$lastRow]); $j++){
+                            if($i !== $sudokuCol){
+                                $options = &$sudArray[$sudokuRow][$i][$lastRow][$j];
+                                if(is_array($options)){
+                                    $index = array_search($num, $options);
+                                    if($index){
+                                        unset($options[$index]);
+                                        array_values($options);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                else if($sameCol){
+                    for($i = 0; $i < count($sudArray); $i++){
+                        for($j = 0; $j < count($sudArray[$i][$sudokuCol]); $j++){
+                            if($i !== $sudokuRow){
+                                $options = &$sudArray[$i][$sudokuCol][$j][$lastCol];
+                                if(is_array($options)){
+                                    $index = array_search($num, $options);
+                                    if($index){
+                                        unset($options[$index]);
+                                        array_values($options);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
-        return false;
     }
 
-    private function colHasDuplicate(array $sudArray, int $sector, int $numPos, int $num){
-        $createIndex = function($number){//get the right indexes that need to be looped over based on coordinates of the currently evaluated number
-            if(in_array($number, [0,3,6])){
-                $start = 0;
-                $stop = 7;
+    private function findSingles(array &$sudArray, int $indexA, int $indexB, string $searchType) {
+        $found = false;
+        for ($num = 1; $num < 10; $num++) {
+            $sudokuRow = null;
+            $sudokuCol = null;
+            $sectorRow = null;
+            $sectorCol = null;
+            $countA = null;
+            $countB = null;
+            $savedIndexA = null;
+            $savedIndexB = null;
+            $found = false;
+            $duplicate = false;
+    
+            if($searchType === "col"){
+                $sudokuCol = $indexA;
+                $sectorCol = $indexB;
+                $countA = count($sudArray);
             }
-            else if(in_array($number, [1,4,7])){
-                $start = 1;
-                $stop = 8;
+            else if($searchType === "row"){
+                $sudokuRow = $indexA;
+                $sectorRow = $indexB;
+                $countA = count($sudArray[$sudokuRow]);
             }
             else{
-                $start = 2;
-                $stop = 9;
+                $sudokuRow = $indexA;
+                $sudokuCol = $indexB;
+                $countA = count($sudArray[$sudokuRow][$sudokuCol]);
             }
-            return [$start,$stop];
-        };
 
-        $sectorIndices = $createIndex($sector);
-        $sectorEnd = $sectorIndices[1];
-        $numposIndices = $createIndex($numPos);
-        $numPosEnd = $numposIndices[1];
-       
-        for($sectorIndex = $sectorIndices[0]; $sectorIndex < $sectorEnd; $sectorIndex += 3){
-           for($numPosIndex = $numposIndices[0]; $numPosIndex < $numPosEnd; $numPosIndex += 3){
-                $comparedNum = $sudArray[$sectorIndex][$numPosIndex];
-                if($sectorIndex == $sector && $numPosIndex == $numPos){
-                    continue;
+            for ($i = 0; $i < $countA; $i++) {
+                $savedIndexA = $i;
+                if($searchType === "col"){
+                    $countB = count($sudArray[$savedIndexA][$sudokuCol]);
                 }
-                if($comparedNum == $num){
-                    return true;
+                else if($searchType === "row"){
+                    $countB = count($sudArray[$sudokuRow][$savedIndexA][$sectorRow]);
                 }
-           }
+                else{
+                    $countB = count($sudArray[$sudokuRow][$sudokuCol][$savedIndexA]);
+                }
+                for ($j = 0; $j < $countB; $j++) {
+                    $savedIndexB = $j;
+                    if($searchType === "col"){
+                        $options = $sudArray[$savedIndexA][$sudokuCol][$savedIndexB][$sectorCol];
+                    }
+                    else if($searchType === "row"){
+                        $options = $sudArray[$sudokuRow][$savedIndexA][$sectorRow][$savedIndexB];
+                    }
+                    else{
+                        $options = $sudArray[$sudokuRow][$sudokuCol][$savedIndexA][$savedIndexB];
+                    }
+                    if (is_array($options) && in_array($num, $options)) {
+                        if(!$found){
+                            $found = true;
+                            if($searchType === "col"){
+                                $sudokuRow = $savedIndexA;
+                                $sectorRow = $savedIndexB;
+                            }
+                            else if($searchType === "row"){
+                                $sudokuCol = $savedIndexA;
+                                $sectorCol = $savedIndexB;
+                            }
+                            else{
+                                $sectorRow = $savedIndexA;
+                                $sectorCol = $savedIndexB;
+                            }
+                        }
+                        else{
+                            $duplicate = true;
+                            break 2;
+                        }
+                    }
+                }
+            }
+            if (!$duplicate && $found && $sudokuRow !== null && $sudokuCol !== null && $sectorRow !== null && $sectorCol !== null) {
+                $sudArray[$sudokuRow][$sudokuCol][$sectorRow][$sectorCol] = [$num];
+                $this->removeOptionFromSurrounding($sudArray, $sudokuRow, $sudokuCol, $sectorRow, $sectorCol, $num);
+                $found = true;
+            }
         }
-        return false;
+        return $found;
     }
 
-    private function RowHasDuplicate(array $sudArray, int $sector, int $numPos, int $num){
-        $createIndex = function($number){//get the right indexes that need to be looped over based on coordinates of the currently evaluated number
-            if($number < 3){
-                $start = 0;
-                $stop = 3; 
-            }
-            else if($number > 5){
-                $start = 6;
-                $stop = 9;
-            }
-            else{
-                $start = 3;
-                $stop = 6;
-            }  
-            return [$start, $stop];
-        };
-
-        $sectorIndices = $createIndex($sector);
-        $sectorEnd = $sectorIndices[1];
-        $numPosIndices = $createIndex($numPos);
-        $numPosEnd = $numPosIndices[1];
-
-        for($sectorIndex = $sectorIndices[0]; $sectorIndex < $sectorEnd; $sectorIndex++){
-            for($numPosIndex = $numPosIndices[0]; $numPosIndex < $numPosEnd; $numPosIndex++){
-                $comparedNum = $sudArray[$sectorIndex][$numPosIndex];
-                if($sectorIndex == $sector && $numPosIndex == $numPos){
-                    continue;
-                }
-                if($comparedNum == $num){
-                    return true;
+    private function removeOptionFromSurrounding(array &$sudokuArray, int $sudokuRow, int $sudokuCol, int $sectorRow, int $sectorCol, int $num){
+        for($sudRow = 0; $sudRow < count($sudokuArray); $sudRow++){
+            for($sudCol = 0; $sudCol < count($sudokuArray[$sudRow]); $sudCol++){
+                for($secRow = 0; $secRow < count($sudokuArray[$sudRow][$sudCol]); $secRow++){
+                    for($secCol = 0; $secCol < count($sudokuArray[$sudRow][$sudCol][$secRow]); $secCol++){
+                        $options = &$sudokuArray[$sudRow][$sudCol][$secRow][$secCol];
+                        if(is_array($options)){
+                            if(($sudRow == $sudokuRow && $sudCol == $sudokuCol) || ($sudRow == $sudokuRow && $secRow == $sectorRow) || ($sudCol == $sudokuCol && $secCol == $sectorCol)){
+                                if($index = array_search($num, $options)){
+                                    unset($options[$index]);
+                                    array_values($options);
+                                }
+                            }
+                        }
+                    }
                 }
             }
-        } 
-        return false;
+        }
     }
 
     private function sudokuSolver(array $sudArray, int $filledAmmount, $totalAmmount) : array | false{
         $solution = $sudArray;
         $filledInputs = $filledAmmount;
         $nosolution = false;
-        while($filledInputs != $totalAmmount && !$nosolution){
+        $cycles = 0;
+        while($filledInputs !== $totalAmmount && !$nosolution){
             $nosolution = true;
-            for($i = 0; $i < count($solution); $i++){
-                for($j = 0; $j < count($solution[$i]); $j++){
-                    if($solution[$i][$j] == "-"){
-                        $multipleOptions = false;
-                        $secpos = null;
-                        $numpos = null;
-                        $input = null;
-                        for($num = 1; $num <= 9; $num++){
-                            if(!$this->sectorHasDuplicate($solution[$i], $j, $num) && !$this->RowHasDuplicate($solution, $i, $j, $num) && !$this->colHasDuplicate($solution, $i, $j, $num)){
-                                if($secpos === null){
-                                    $secpos = $i;
-                                    $numpos = $j;
-                                    $input = $num;
-                                }
-                                else{
-                                    $multipleOptions = true;
-                                    break;
+            for($sudokuRow = 0; $sudokuRow < count($solution); $sudokuRow++){
+                for($sudokuCol = 0; $sudokuCol < count($solution[$sudokuRow]); $sudokuCol++){
+                    for($sectorRow = 0; $sectorRow < count($solution[$sudokuRow][$sudokuCol]); $sectorRow++){
+                        for($sectorCol = 0; $sectorCol < count($solution[$sudokuRow][$sudokuCol][$sectorRow]); $sectorCol++){
+                            $numOptions = &$solution[$sudokuRow][$sudokuCol][$sectorRow][$sectorCol];
+                            if($numOptions == "-"){//an unfilled spot means all options are technically possible
+                                $numOptions = [1,2,3,4,5,6,7,8,9];
+                            }
+                            if(is_array($numOptions)){//if its an array that means there are still multiple options possible and requires further looping to find the correct number.
+                                    $sectorOptions = $this->sectorHasDuplicate($solution[$sudokuRow][$sudokuCol], $sectorRow, $sectorCol, $numOptions);
+                                    $rowOptions = $this->RowHasDuplicate($solution, $sudokuRow, $sectorRow, $sudokuCol, $sectorCol, $numOptions);
+                                    $colOptions = $this->colHasDuplicate($solution, $sudokuCol, $sectorCol, $sudokuRow, $sectorRow, $numOptions);
+                                    $newNumOptions = array_intersect($sectorOptions, $rowOptions, $colOptions);//only keep the options that are possible in all funcions.
+                                    $newNumOptions = array_values($newNumOptions);//array_intersect creates an associate array, but we just want an indexed array.
+    
+                                    if(count($newNumOptions) === 1){//if only one options remains we can change it to an integer, indicating that its the final value.
+                                        $numOptions = $newNumOptions[0];
+                                        $filledInputs++;
+                                        $nosolution = false;
+                                    }
+                                    else if(count($numOptions) !== count($newNumOptions)){//if at least some options have been removed we can count that as progress
+                                        $nosolution = false;
+                                        $numOptions = $newNumOptions;
+                                    }
+                            }
+                            if($cycles > 0){
+                                if($this->findSingles($solution, $sudokuCol, $sectorCol, "col")){
+                                    $nosolution = false;
                                 }
                             }
                         }
-                        if(!$multipleOptions){
+                        if($cycles > 0){
+                            if($this->findSingles($solution, $sudokuRow, $sectorRow, "row")){
+                                $nosolution = false;
+                            } 
+                        }
+                    }
+                    //$this->movePrediction($solution, $sudokuRow, $sudokuCol);
+                    if($cycles > 0){
+                        if($this->findSingles($solution, $sudokuRow, $sudokuCol, "sector")){
                             $nosolution = false;
-                            $solution[$secpos][$numpos] = (string)$input; 
-                            $filledInputs++;
                         }
                     }
                 }
             }
+            if($cycles == 1){
+                $this->tempdumpy($solution);
+            }
+            $cycles++;
         }
         if($nosolution){
-            return false;
+            $this->tempdumpy($solution);
+            return [false, $solution];
         }
         else{
-            return $solution;
+            return [true, $solution];
         }
+    }
+
+    private function tempdumpy($solution){
+        for($a=0; $a<3; $a++){
+            for($b=0;$b<3;$b++){
+                print_r($solution[$a][0][$b][1]);
+                echo "<br>";
+            }
+        }
+        for($i = 0; $i<3; $i++){
+            for($j=0; $j <3; $j++){
+                for($k=0; $k< 3; $k++){
+                    for($l=0; $l<3; $l++){
+                        if(!is_array($solution[$i][$k][$j][$l])){
+                            echo $solution[$i][$k][$j][$l];
+                        }
+                        else{
+                            echo "-";
+                        }
+                    }
+                    echo "  ";
+                }
+                echo "<br>";
+            }
+            echo "<br>";
+        }
+        dd($solution);
+        die();
     }
 }
 ?>
