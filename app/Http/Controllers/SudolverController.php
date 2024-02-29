@@ -4,8 +4,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\CustomClasses\SudokuModus;
 use App\CustomClasses\SudokuType;
-use Exception;
-use Symfony\Component\VarDumper\VarDumper;
+use App\CustomClasses\SudokuStructure;
 
 class SudolverController extends Controller
 {
@@ -16,21 +15,49 @@ class SudolverController extends Controller
         return view("sudolverPage",["typeArray"=>$typeArray, "modusArray"=>$modusArray, "sudokuArray"=>$sudokuArray]);
     }
 
+    // public function solve(Request $request){
+    //     $sudokuArray = $request->get("input");
+    //     $error = "";
+    //     if($sudokuArray){
+    //         $filledInputsAmmount = $this->validSudokuInput($sudokuArray);
+    //         if(!$filledInputsAmmount){
+    //             $error = "This sudoku is invalid. Make sure you fill in atleast 17 numbers, with no duplicates in rows columns and squares.";
+    //         }
+    //         else{
+    //             $solution = $this->sudokuSolver($sudokuArray, $filledInputsAmmount[0], $filledInputsAmmount[1]);
+    //             if(!$solution[0]){
+    //                 $error = "This sudoku is unsolvable.";
+    //             }
+    //             else{
+    //                 $error = "Succes! :)";
+    //             }
+    //             $sudokuArray = $solution[1];
+    //         }
+    //     }
+    //     else{
+    //         $error = "Something went wrong.";
+    //     }
+    //     return redirect()->Route("sudolver")->withErrors(["solveError"=>$error])->with(["SudokuArray"=>$sudokuArray]);
+    // }
+
     public function solve(Request $request){
+        $type = SudokuType::from($request->get("sudokuType"));
+        $modus = SudokuModus::from($request->get("sudokuModus"));
+        $sudokuSolver = new SudokuStructure($type, $modus);
         $sudokuArray = $request->get("input");
         $error = "";
         if($sudokuArray){
-            $filledInputsAmmount = $this->validSudokuInput($sudokuArray);
-            if(!$filledInputsAmmount){
+            $solution = $sudokuSolver->solve($sudokuArray);
+            
+            if($solution == false){
                 $error = "This sudoku is invalid. Make sure you fill in atleast 17 numbers, with no duplicates in rows columns and squares.";
             }
             else{
-                $solution = $this->sudokuSolver($sudokuArray, $filledInputsAmmount[0], $filledInputsAmmount[1]);
-                if(!$solution[0]){
+                if($solution[0] == false){
                     $error = "This sudoku is unsolvable.";
                 }
                 else{
-                    $error = "Succes! :)";
+                    $error = "succes! :)";
                 }
                 $sudokuArray = $solution[1];
             }
@@ -139,43 +166,55 @@ class SudolverController extends Controller
         return $newOptions;
     }
 
-    private function movePrediction(array &$sudArray, int $sudokuRow, int $sudokuCol){//checks if there are options within a sector that all allign on the same axis so we can remove those options from other sectors on that axis
+    private function FindPairs(array &$sudArray, int $sudokuRow, int $sudokuCol, $cycles){//checks if there are options within a sector that all allign on the same axis so we can remove those options from other sectors on that axis
         for($num = 1; $num < 10; $num++){
-            $lastRow = null;
-            $lastCol = null;
-            $sameRow = true;
-            $sameCol = true;
+        if($cycles == 1 && $num == 4 && $sudokuRow == 1 && $sudokuCol == 2){
+            //$this->tempdumpy($sudArray);
+            $hier = true;
+        }
+            $FoundCoordinates = [];
             for($sectorRow = 0; $sectorRow < count($sudArray[$sudokuRow][$sudokuCol]); $sectorRow++){
                 for($sectorCol = 0; $sectorCol < count($sudArray[$sudokuRow][$sudokuCol][$sectorRow]); $sectorCol++){
-                    $options = $sudArray[$sudokuRow][$sudokuCol][$sectorRow][$sectorCol];
-                    if(is_array($options) && in_array($num, $options)){
-                        if($lastRow !== null){
-                            if($sectorRow !== $lastRow){
-                                $sameRow = false;
-                            }
-                            if($sectorCol !== $lastCol){
-                                $sameCol = false;
-                            }
-                            if(!$sameRow && !$sameCol){
-                                break 2;
-                            }
-                        }
-                        $lastRow = $sectorRow;
-                        $lastCol = $sectorCol;
+                    $options = &$sudArray[$sudokuRow][$sudokuCol][$sectorRow][$sectorCol];
+                    if(is_array($options) && count($options) > 1 && in_array($num, $options)){
+                        array_push($FoundCoordinates, [$sectorRow, $sectorCol]);
                     }
                 }
             }
-            if($lastRow !== null){
+            if(count($FoundCoordinates) <= 3 && count($FoundCoordinates) > 1){
+                $row = null;
+                $col = null;
+                $sameRow = true;
+                $sameCol = true;
+                foreach($FoundCoordinates as $coord){
+                    if($row === null){
+                        $row = $coord[0];
+                    }
+                    else{
+                        if($coord[0] != $row){
+                            $sameRow = false;
+                        }
+                    }
+                    if($col === null){
+                        $col = $coord[1];
+                    }
+                    else{
+                        if($coord[1] != $col){
+                            $sameCol = false;
+                        }
+                    }
+                }
                 if($sameRow){
                     for($i = 0; $i < count($sudArray[$sudokuRow]); $i++){
-                        for($j = 0; $j < count($sudArray[$sudokuRow][$i][$lastRow]); $j++){
+                        for($j = 0; $j < count($sudArray[$sudokuRow][$i][$row]); $j++){
                             if($i !== $sudokuCol){
-                                $options = &$sudArray[$sudokuRow][$i][$lastRow][$j];
-                                if(is_array($options)){
+                                $options = &$sudArray[$sudokuRow][$i][$row][$j];
+                                if(is_array($options) && count($options) > 1){
                                     $index = array_search($num, $options);
-                                    if($index){
+                                    if($index != null){
                                         unset($options[$index]);
-                                        array_values($options);
+                                        $options = array_values($options);
+                                        echo "<script>console.log('".$sudokuRow . $sudokuCol . $row . $col . " ". $num . " moveprediction row " . $cycles . "' );</script>";
                                     }
                                 }
                             }
@@ -186,12 +225,13 @@ class SudolverController extends Controller
                     for($i = 0; $i < count($sudArray); $i++){
                         for($j = 0; $j < count($sudArray[$i][$sudokuCol]); $j++){
                             if($i !== $sudokuRow){
-                                $options = &$sudArray[$i][$sudokuCol][$j][$lastCol];
-                                if(is_array($options)){
+                                $options = &$sudArray[$i][$sudokuCol][$j][$col];
+                                if(is_array($options) && count($options) > 1){
                                     $index = array_search($num, $options);
-                                    if($index){
+                                    if($index != null){
                                         unset($options[$index]);
-                                        array_values($options);
+                                        $options = array_values($options);
+                                        echo "<script>console.log('".$sudokuRow . $sudokuCol . $row . $col . " ". $num . " moveprediction col " . $cycles . "' );</script>";
                                     }
                                 }
                             }
@@ -201,8 +241,8 @@ class SudolverController extends Controller
             }
         }
     }
-
-    private function findSingles(array &$sudArray, int $indexA, int $indexB, string $searchType) {
+    
+    private function findSingles(array &$sudArray, int $indexA, int $indexB, string $searchType, int &$filledInputs, $cycles) {
         $found = false;
         for ($num = 1; $num < 10; $num++) {
             $sudokuRow = null;
@@ -215,7 +255,7 @@ class SudolverController extends Controller
             $savedIndexB = null;
             $found = false;
             $duplicate = false;
-    
+            
             if($searchType === "col"){
                 $sudokuCol = $indexA;
                 $sectorCol = $indexB;
@@ -231,7 +271,7 @@ class SudolverController extends Controller
                 $sudokuCol = $indexB;
                 $countA = count($sudArray[$sudokuRow][$sudokuCol]);
             }
-
+            
             for ($i = 0; $i < $countA; $i++) {
                 $savedIndexA = $i;
                 if($searchType === "col"){
@@ -249,6 +289,7 @@ class SudolverController extends Controller
                         $options = $sudArray[$savedIndexA][$sudokuCol][$savedIndexB][$sectorCol];
                     }
                     else if($searchType === "row"){
+                        
                         $options = $sudArray[$sudokuRow][$savedIndexA][$sectorRow][$savedIndexB];
                     }
                     else{
@@ -278,7 +319,9 @@ class SudolverController extends Controller
                 }
             }
             if (!$duplicate && $found && $sudokuRow !== null && $sudokuCol !== null && $sectorRow !== null && $sectorCol !== null) {
-                $sudArray[$sudokuRow][$sudokuCol][$sectorRow][$sectorCol] = [$num];
+                $sudArray[$sudokuRow][$sudokuCol][$sectorRow][$sectorCol] = $num;
+                $filledInputs++;
+                echo "<script>console.log('".$sudokuRow . $sudokuCol . $sectorRow . $sectorCol . " ". $num . $searchType . " " . $cycles . "' );</script>";
                 $this->removeOptionFromSurrounding($sudArray, $sudokuRow, $sudokuCol, $sectorRow, $sectorCol, $num);
                 $found = true;
             }
@@ -292,11 +335,12 @@ class SudolverController extends Controller
                 for($secRow = 0; $secRow < count($sudokuArray[$sudRow][$sudCol]); $secRow++){
                     for($secCol = 0; $secCol < count($sudokuArray[$sudRow][$sudCol][$secRow]); $secCol++){
                         $options = &$sudokuArray[$sudRow][$sudCol][$secRow][$secCol];
-                        if(is_array($options)){
+                        if(is_array($options) && count($options) > 1){
                             if(($sudRow == $sudokuRow && $sudCol == $sudokuCol) || ($sudRow == $sudokuRow && $secRow == $sectorRow) || ($sudCol == $sudokuCol && $secCol == $sectorCol)){
-                                if($index = array_search($num, $options)){
+                                $index = array_search($num, $options);
+                                if($index !== false){
                                     unset($options[$index]);
-                                    array_values($options);
+                                    $options = array_values($options);
                                 }
                             }
                         }
@@ -311,7 +355,7 @@ class SudolverController extends Controller
         $filledInputs = $filledAmmount;
         $nosolution = false;
         $cycles = 0;
-        while($filledInputs !== $totalAmmount && !$nosolution){
+        while($filledInputs !== $totalAmmount && !$nosolution && $cycles < 100){
             $nosolution = true;
             for($sudokuRow = 0; $sudokuRow < count($solution); $sudokuRow++){
                 for($sudokuCol = 0; $sudokuCol < count($solution[$sudokuRow]); $sudokuCol++){
@@ -322,52 +366,51 @@ class SudolverController extends Controller
                                 $numOptions = [1,2,3,4,5,6,7,8,9];
                             }
                             if(is_array($numOptions)){//if its an array that means there are still multiple options possible and requires further looping to find the correct number.
-                                    $sectorOptions = $this->sectorHasDuplicate($solution[$sudokuRow][$sudokuCol], $sectorRow, $sectorCol, $numOptions);
-                                    $rowOptions = $this->RowHasDuplicate($solution, $sudokuRow, $sectorRow, $sudokuCol, $sectorCol, $numOptions);
-                                    $colOptions = $this->colHasDuplicate($solution, $sudokuCol, $sectorCol, $sudokuRow, $sectorRow, $numOptions);
-                                    $newNumOptions = array_intersect($sectorOptions, $rowOptions, $colOptions);//only keep the options that are possible in all funcions.
-                                    $newNumOptions = array_values($newNumOptions);//array_intersect creates an associate array, but we just want an indexed array.
-    
-                                    if(count($newNumOptions) === 1){//if only one options remains we can change it to an integer, indicating that its the final value.
-                                        $numOptions = $newNumOptions[0];
+                                    if($cycles < 1){
+                                        $sectorOptions = $this->sectorHasDuplicate($solution[$sudokuRow][$sudokuCol], $sectorRow, $sectorCol, $numOptions);
+                                        $rowOptions = $this->RowHasDuplicate($solution, $sudokuRow, $sectorRow, $sudokuCol, $sectorCol, $numOptions);
+                                        $colOptions = $this->colHasDuplicate($solution, $sudokuCol, $sectorCol, $sudokuRow, $sectorRow, $numOptions);
+                                        $newNumOptions = array_intersect($sectorOptions, $rowOptions, $colOptions);//only keep the options that are possible in all funcions.
+                                        $newNumOptions = array_values($newNumOptions);//array_intersect creates an associate array, but we just want an indexed array.
+                                        $numOptions = $newNumOptions;
+                                        $nosolution = false;
+                                    }
+                                    if(count($numOptions) === 1){//if only one options remains we can change it to an integer, indicating that its the final value.
+                                        $numOptions = $numOptions[0];
+                                        $this->removeOptionFromSurrounding($solution, $sudokuRow, $sudokuCol, $sectorRow, $sectorCol, $numOptions);
+                                        
+                                        echo "<script>console.log('" . $sudokuRow . $sudokuCol . $sectorRow . $sectorCol . " ". $numOptions . " " . $cycles . "' );</script>";
                                         $filledInputs++;
                                         $nosolution = false;
                                     }
-                                    else if(count($numOptions) !== count($newNumOptions)){//if at least some options have been removed we can count that as progress
-                                        $nosolution = false;
-                                        $numOptions = $newNumOptions;
-                                    }
                             }
                             if($cycles > 0){
-                                if($this->findSingles($solution, $sudokuCol, $sectorCol, "col")){
-                                    $nosolution = false;
-                                }
+                                $this->findSingles($solution, $sudokuCol, $sectorCol, "col", $filledInputs, $cycles);
                             }
                         }
                         if($cycles > 0){
-                            if($this->findSingles($solution, $sudokuRow, $sectorRow, "row")){
-                                $nosolution = false;
-                            } 
+                            $this->findSingles($solution, $sudokuRow, $sectorRow, "row", $filledInputs, $cycles);
                         }
                     }
-                    //$this->movePrediction($solution, $sudokuRow, $sudokuCol);
                     if($cycles > 0){
-                        if($this->findSingles($solution, $sudokuRow, $sudokuCol, "sector")){
-                            $nosolution = false;
-                        }
+                        $this->findSingles($solution, $sudokuRow, $sudokuCol, "sector", $filledInputs, $cycles);
+                        $this->FindPairs($solution, $sudokuRow, $sudokuCol, $cycles);
+                        // if($cycles == 1 && $sudokuRow == 0 && $sudokuCol == 0){
+                        //     $this->tempdumpy($solution);
+                        // }
                     }
                 }
-            }
-            if($cycles == 1){
-                $this->tempdumpy($solution);
             }
             $cycles++;
         }
         if($nosolution){
+            echo "fail";
             $this->tempdumpy($solution);
             return [false, $solution];
         }
         else{
+            echo "succes";
+            $this->tempdumpy($solution);
             return [true, $solution];
         }
     }
@@ -375,7 +418,7 @@ class SudolverController extends Controller
     private function tempdumpy($solution){
         for($a=0; $a<3; $a++){
             for($b=0;$b<3;$b++){
-                print_r($solution[$a][0][$b][1]);
+                print_r($solution[0][1][$a][$b]);
                 echo "<br>";
             }
         }
@@ -400,4 +443,3 @@ class SudolverController extends Controller
         die();
     }
 }
-?>

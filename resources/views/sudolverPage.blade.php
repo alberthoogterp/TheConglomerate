@@ -11,13 +11,13 @@
         <div id="sudokuContainer">
             <div id="sudokuOptions">
                 <h1>Sudolver</h1>
-                <select name="sudokuModus" id="sudokuModus">
+                <select name="sudokuModus" id="sudokuModus" form="canvasForm">
                     @foreach ($modusArray as $modus)
                         <option value={{$modus}}>{{$modus}}</option>
                     @endforeach
                 </select>
                 
-                <select name="sudokuType" id="sudokuType">
+                <select name="sudokuType" id="sudokuType" form="canvasForm">
                     @foreach ($typeArray as $type)
                         <option value={{$type}}>{{$type}}</option>
                     @endforeach
