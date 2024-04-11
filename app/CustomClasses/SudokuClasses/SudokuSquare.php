@@ -1,5 +1,5 @@
 <?php
-namespace App\CustomClasses;
+namespace App\CustomClasses\SudokuClasses;
 
 //use app\CustomClasses\SudokuPosition;
 

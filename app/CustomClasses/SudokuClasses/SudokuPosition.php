@@ -1,5 +1,5 @@
 <?php
-namespace App\CustomClasses;
+namespace App\CustomClasses\SudokuClasses;
 class SudokuPosition{
     
     public function __construct(

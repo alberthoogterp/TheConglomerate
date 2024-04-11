@@ -36,6 +36,8 @@
             
             <div id="errors">{{$errors->first() ?? ""}}</div>
 
+            <div id="moveList"></div>
+
             <template id="sudokuSector">
                 <div class="sudokuSector">
                     <div class=sectorRow id="sectorRow1">
@@ -64,7 +66,9 @@
                     let modus = getSudokuModus();
                     let type = getSudokuType();
                     let sudokuArray = {!! json_encode($sudokuArray) !!};
+                    let moveList = {!! json_encode($moves) !!};
                     createCanvas(type, modus, sudokuArray);
+                    setMoves(moveList);
                 }
 
                 function getSudokuModus(){
@@ -136,13 +140,25 @@
                 function reset(){
                     const canvas = document.getElementById("sudokuCanvas"); 
                     const errorDiv = document.getElementById("errors");
+                    const moveList = document.getElementById("moveList");
                     errorDiv.textContent = "";
+                    moveList.textContent = "";
                     for(const sector of canvas.children){
                         for(const row of sector.children){
                             for(const col of row.children){
                                 col.value = "-";
                             }
                         }
+                    }
+                }
+
+                function setMoves(moveList){
+                    const moveListDiv = document.getElementById("moveList");
+                    for(let move of moveList){
+                        line = document.createElement("p");
+                        text = document.createTextNode(move);
+                        line.appendChild(text);
+                        moveListDiv.appendChild(line);
                     }
                 }
                 
