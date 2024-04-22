@@ -22,6 +22,7 @@ class SudolverController extends Controller
         $sudokuSolver = new SudokuStructure($type, $modus);
         $sudokuArray = $request->get("input");
         $error = "";
+        $moves = [];
         if($sudokuArray){
             $startTime = microtime(true);
             $solution = $sudokuSolver->solve($sudokuArray);
